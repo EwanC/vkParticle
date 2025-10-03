@@ -13,6 +13,7 @@ import vulkan_hpp;
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
+/// @brief Storage buffer class used in compute shader
 struct Particle {
   glm::vec2 position;
   glm::vec2 velocity;
@@ -32,6 +33,7 @@ struct Particle {
   }
 };
 
+/// @brief uniform buffer used in compute shader
 struct UniformBufferObject {
   float deltaTime = 1.0f;
 };
@@ -72,21 +74,27 @@ private:
   void createSwapChain();
   /// @brief Creates a view into each image in the swap chain.
   void createImageViews();
-  /// @brief TODO
+  /// @brief Defines descriptor set layout for compute shader of a uniform
+  /// buffer and 2 storage buffers.
   void createComputeDescriptorSetLayout();
-  /// @brief TODO
+  /// @brief Loads vertex & fragment shaders,
+  /// and creates graphics pipeline.
   void createGraphicsPipeline();
-  /// @brief TODO
+  /// @brief Loads compute shader, and creates compute pipeline.
   void createComputePipeline();
-  /// @brief Creates a command pool
+  /// @brief Creates a command pool.
   void createCommandPool();
-  /// @brief TODO
+  /// @brief Creates SSB for every frame of `Particle` objects copied to
+  /// GPU-only memory from host-visible staging memory.
   void createShaderStorageBuffers();
-  /// @brief TODO
+  /// @brief Creates a persistently mapped uniformed buffer for every frame.
   void createUniformBuffers();
-  /// @brief TODO
+  /// @brief Defines descriptor pool for creating uniform and storage buffer
+  /// descriptors from
   void createDescriptorPool();
-  /// @brief TODO
+  /// @brief For every frame, writes a descriptor set of a uniform buffer with
+  /// the new time delta, as well as 2 storage buffers for the last and
+  /// current frame particle position.
   void createComputeDescriptorSets();
   /// @brief Creates a command-buffer to use for graphics commands for each of
   /// the possible frames in flight.
@@ -97,20 +105,22 @@ private:
   /// @brief Creates timeline semaphore and fences for synchronization.
   void createSyncObjects();
 
-  /// @brief TODO
+  /// @brief Add commands to graphics command-buffer
   void recordGraphicsCommandBuffer(uint32_t imageIndex);
-  /// @brief TODO
+  /// @brief Add commands to compute command-buffer
   void recordComputeCommandBuffer();
-  /// @brief TODO
+  /// @brief Submits the command-buffers to the queue,
+  /// and presents the new frame.
   void drawFrame();
-  /// @brief TODO
+  /// @brief Reconfigures the swap chain image formats if the window is resized.
   void recreateSwapChain();
-  /// @brief TODO
+  /// @brief Resets swap chain state.
   void cleanupSwapChain();
-  /// @brief TODO
+  /// @brief Adds a copy buffer command to a one time submit command-buffer,
+  /// and submits it to the queue with a blocking host wait.
   void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer,
                   vk::DeviceSize size);
-  /// @brief TODO
+  /// @brief Sets the uniform buffer object data to the latest time delta.
   void updateUniformBuffer(uint32_t currentImage);
 
   /*
