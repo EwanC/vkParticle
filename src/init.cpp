@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-const std::vector<const char *> vkParticle::validationLayers = {
+const std::vector<const char *> vkParticle::SValidationLayers = {
     "VK_LAYER_KHRONOS_validation"};
 
 namespace {
@@ -29,10 +29,10 @@ void vkParticle::initWindow() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-  window = glfwCreateWindow(windowWidth, windowHeight, "vkParticle", nullptr,
-                            nullptr);
-  glfwSetWindowUserPointer(window, this);
-  glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+  MWindow = glfwCreateWindow(SWindowWidth, SWindowHeight, "vkParticle", nullptr,
+                             nullptr);
+  glfwSetWindowUserPointer(MWindow, this);
+  glfwSetFramebufferSizeCallback(MWindow, framebufferResizeCallback);
 }
 
 void vkParticle::initVulkan() {
@@ -57,7 +57,7 @@ void vkParticle::initVulkan() {
 }
 
 void vkParticle::cleanup() {
-  glfwDestroyWindow(window);
+  glfwDestroyWindow(MWindow);
   glfwTerminate();
 }
 
@@ -84,11 +84,11 @@ void vkParticle::createInstance() {
 
   // Get the required layers
   std::vector<char const *> requiredLayers;
-  if (enableValidationLayers) {
-    requiredLayers.assign(validationLayers.begin(), validationLayers.end());
+  if (SEnableValidationLayers) {
+    requiredLayers.assign(SValidationLayers.begin(), SValidationLayers.end());
   }
 
-  auto layerProperties = context.enumerateInstanceLayerProperties();
+  auto layerProperties = MContext.enumerateInstanceLayerProperties();
   for (auto const &requiredLayer : requiredLayers) {
     bool layerUnsupported = std::ranges::none_of(
         layerProperties, [requiredLayer](auto const &layerProperty) {
@@ -102,8 +102,8 @@ void vkParticle::createInstance() {
 
   // Get required extensions and check all are supported by the Vulkan
   // implementation.
-  auto requiredExtensions = getRequiredExtensions(enableValidationLayers);
-  auto extensionProperties = context.enumerateInstanceExtensionProperties();
+  auto requiredExtensions = getRequiredExtensions(SEnableValidationLayers);
+  auto extensionProperties = MContext.enumerateInstanceExtensionProperties();
   for (auto const &requiredExtension : requiredExtensions) {
     bool extUnsupported = std::ranges::none_of(
         extensionProperties,
@@ -123,7 +123,7 @@ void vkParticle::createInstance() {
       .ppEnabledLayerNames = requiredLayers.data(),
       .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
       .ppEnabledExtensionNames = requiredExtensions.data()};
-  instance = vk::raii::Instance(context, createInfo);
+  MInstance = vk::raii::Instance(MContext, createInfo);
 }
 
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
@@ -140,7 +140,7 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(
 }
 
 void vkParticle::setupDebugMessenger() {
-  if (!enableValidationLayers)
+  if (!SEnableValidationLayers)
     return;
 
   vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
@@ -156,34 +156,35 @@ void vkParticle::setupDebugMessenger() {
       .messageType = messageTypeFlags,
       .pfnUserCallback = &debugCallback};
 
-  debugMessenger =
-      instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
+  MDebugMessenger =
+      MInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 }
 
 void vkParticle::mainLoop() {
-  while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
-         !glfwWindowShouldClose(window)) {
+  // Exit on escape key press or GUI window close
+  while (glfwGetKey(MWindow, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
+         !glfwWindowShouldClose(MWindow)) {
     glfwPollEvents();
     drawFrame();
     // We want to animate the particle system using the last frames time to get
     // smooth, frame-rate independent animation
     double currentTime = glfwGetTime();
-    lastFrameTime = (currentTime - lastTime) * 1000.0;
-    lastTime = currentTime;
+    MLastFrameTime = (currentTime - MLastTime) * 1000.0;
+    MLastTime = currentTime;
   }
-  device.waitIdle();
+  MDevice.waitIdle();
 }
 
 void vkParticle::createSyncObjects() {
-  inFlightFences.clear();
+  MInFlightFences.clear();
 
   vk::SemaphoreTypeCreateInfo semaphoreType{
       .semaphoreType = vk::SemaphoreType::eTimeline, .initialValue = 0};
-  semaphore = vk::raii::Semaphore(device, {.pNext = &semaphoreType});
-  timelineValue = 0;
+  MSemaphore = vk::raii::Semaphore(MDevice, {.pNext = &semaphoreType});
+  MTimelineValue = 0;
 
-  for (size_t i = 0; i < MaxFramesInFlight; i++) {
+  for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::FenceCreateInfo fenceInfo{};
-    inFlightFences.emplace_back(device, fenceInfo);
+    MInFlightFences.emplace_back(MDevice, fenceInfo);
   }
 }

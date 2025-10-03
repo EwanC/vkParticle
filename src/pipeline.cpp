@@ -5,7 +5,7 @@
 void vkParticle::createGraphicsPipeline() {
   // Shader setup
   vk::raii::ShaderModule shaderModule =
-      createShaderModule(readFile("slang.spv"), device);
+      createShaderModule(readFile("slang.spv"), MDevice);
 
   vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
       .stage = vk::ShaderStageFlagBits::eVertex,
@@ -73,11 +73,11 @@ void vkParticle::createGraphicsPipeline() {
       .pDynamicStates = dynamicStates.data()};
 
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-  pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+  MPipelineLayout = vk::raii::PipelineLayout(MDevice, pipelineLayoutInfo);
 
   vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{
       .colorAttachmentCount = 1,
-      .pColorAttachmentFormats = &swapChainSurfaceFormat.format};
+      .pColorAttachmentFormats = &MSwapChainSurfaceFormat.format};
   vk::GraphicsPipelineCreateInfo pipelineInfo{
       .pNext = &pipelineRenderingCreateInfo,
       .stageCount = 2,
@@ -89,24 +89,25 @@ void vkParticle::createGraphicsPipeline() {
       .pMultisampleState = &multisampling,
       .pColorBlendState = &colorBlending,
       .pDynamicState = &dynamicState,
-      .layout = *pipelineLayout,
+      .layout = *MPipelineLayout,
       .renderPass = nullptr};
 
-  graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
+  MGraphicsPipeline = vk::raii::Pipeline(MDevice, nullptr, pipelineInfo);
 }
 
 void vkParticle::createComputePipeline() {
   vk::raii::ShaderModule shaderModule =
-      createShaderModule(readFile("slang.spv"), device);
+      createShaderModule(readFile("slang.spv"), MDevice);
 
   vk::PipelineShaderStageCreateInfo computeShaderStageInfo{
       .stage = vk::ShaderStageFlagBits::eCompute,
       .module = shaderModule,
       .pName = "compMain"};
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-      .setLayoutCount = 1, .pSetLayouts = &*computeDescriptorSetLayout};
-  computePipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+      .setLayoutCount = 1, .pSetLayouts = &*MComputeDescriptorSetLayout};
+  MComputePipelineLayout =
+      vk::raii::PipelineLayout(MDevice, pipelineLayoutInfo);
   vk::ComputePipelineCreateInfo pipelineInfo{.stage = computeShaderStageInfo,
-                                             .layout = *computePipelineLayout};
-  computePipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
+                                             .layout = *MComputePipelineLayout};
+  MComputePipeline = vk::raii::Pipeline(MDevice, nullptr, pipelineInfo);
 }

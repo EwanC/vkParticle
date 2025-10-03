@@ -4,22 +4,22 @@
 #include <stdexcept>
 
 void vkParticle::drawFrame() {
-  auto [result, imageIndex] = swapChain.acquireNextImage(
-      UINT64_MAX, nullptr, *inFlightFences[currentFrame]);
+  auto [result, imageIndex] = MSwapChain.acquireNextImage(
+      UINT64_MAX, nullptr, *MInFlightFences[MCurrentFrame]);
   while (vk::Result::eTimeout ==
-         device.waitForFences(*inFlightFences[currentFrame], vk::True,
-                              UINT64_MAX)) {
+         MDevice.waitForFences(*MInFlightFences[MCurrentFrame], vk::True,
+                               UINT64_MAX)) {
     ;
   }
-  device.resetFences(*inFlightFences[currentFrame]);
+  MDevice.resetFences(*MInFlightFences[MCurrentFrame]);
 
   // Update timeline value for this frame
-  uint64_t computeWaitValue = timelineValue;
-  uint64_t computeSignalValue = ++timelineValue;
+  uint64_t computeWaitValue = MTimelineValue;
+  uint64_t computeSignalValue = ++MTimelineValue;
   uint64_t graphicsWaitValue = computeSignalValue;
-  uint64_t graphicsSignalValue = ++timelineValue;
+  uint64_t graphicsSignalValue = ++MTimelineValue;
 
-  updateUniformBuffer(currentFrame);
+  updateUniformBuffer(MCurrentFrame);
 
   {
     recordComputeCommandBuffer();
@@ -33,17 +33,17 @@ void vkParticle::drawFrame() {
     vk::PipelineStageFlags waitStages[] = {
         vk::PipelineStageFlagBits::eComputeShader};
 
-    vk::SubmitInfo computeSubmitInfo{.pNext = &computeTimelineInfo,
-                                     .waitSemaphoreCount = 1,
-                                     .pWaitSemaphores = &*semaphore,
-                                     .pWaitDstStageMask = waitStages,
-                                     .commandBufferCount = 1,
-                                     .pCommandBuffers =
-                                         &*computeCommandBuffers[currentFrame],
-                                     .signalSemaphoreCount = 1,
-                                     .pSignalSemaphores = &*semaphore};
+    vk::SubmitInfo computeSubmitInfo{
+        .pNext = &computeTimelineInfo,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*MSemaphore,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*MComputeCommandBuffers[MCurrentFrame],
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*MSemaphore};
 
-    queue.submit(computeSubmitInfo, nullptr);
+    MQueue.submit(computeSubmitInfo, nullptr);
   }
   {
     recordCommandBuffer(imageIndex);
@@ -58,33 +58,33 @@ void vkParticle::drawFrame() {
 
     vk::SubmitInfo graphicsSubmitInfo{.pNext = &graphicsTimelineInfo,
                                       .waitSemaphoreCount = 1,
-                                      .pWaitSemaphores = &*semaphore,
+                                      .pWaitSemaphores = &*MSemaphore,
                                       .pWaitDstStageMask = &waitStage,
                                       .commandBufferCount = 1,
                                       .pCommandBuffers =
-                                          &*commandBuffers[currentFrame],
+                                          &*MCommandBuffers[MCurrentFrame],
                                       .signalSemaphoreCount = 1,
-                                      .pSignalSemaphores = &*semaphore};
+                                      .pSignalSemaphores = &*MSemaphore};
 
-    queue.submit(graphicsSubmitInfo, nullptr);
+    MQueue.submit(graphicsSubmitInfo, nullptr);
 
     // Present the image (wait for graphics to finish)
     vk::SemaphoreWaitInfo waitInfo{.semaphoreCount = 1,
-                                   .pSemaphores = &*semaphore,
+                                   .pSemaphores = &*MSemaphore,
                                    .pValues = &graphicsSignalValue};
 
     // Wait for graphics to complete before presenting
-    while (vk::Result::eTimeout == device.waitSemaphores(waitInfo, UINT64_MAX))
+    while (vk::Result::eTimeout == MDevice.waitSemaphores(waitInfo, UINT64_MAX))
       ;
 
     vk::PresentInfoKHR presentInfo{.waitSemaphoreCount =
                                        0, // No binary semaphores needed
                                    .pWaitSemaphores = nullptr,
                                    .swapchainCount = 1,
-                                   .pSwapchains = &*swapChain,
+                                   .pSwapchains = &*MSwapChain,
                                    .pImageIndices = &imageIndex};
 
-    result = queue.presentKHR(presentInfo);
+    result = MQueue.presentKHR(presentInfo);
     if (result == vk::Result::eErrorOutOfDateKHR ||
         result == vk::Result::eSuboptimalKHR || framebufferResized) {
       framebufferResized = false;
@@ -94,5 +94,5 @@ void vkParticle::drawFrame() {
     }
   }
 
-  currentFrame = (currentFrame + 1) % MaxFramesInFlight;
+  MCurrentFrame = (MCurrentFrame + 1) % SMaxFramesInFlight;
 }

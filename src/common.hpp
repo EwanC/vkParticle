@@ -42,6 +42,9 @@ struct vkParticle {
   bool framebufferResized = false; // Accessed by GLFW callback
 
 private:
+  /*
+   * Member methods
+   */
   void initWindow();
   void initVulkan();
   void mainLoop();
@@ -79,51 +82,54 @@ private:
   void createComputeDescriptorSetLayout();
   void updateUniformBuffer(uint32_t currentImage);
 
-  GLFWwindow *window = nullptr;
-  vk::raii::Context context;
-  vk::raii::Instance instance = nullptr;
-  vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
-  vk::raii::SurfaceKHR surface = nullptr;
-  vk::raii::PhysicalDevice physicalDevice = nullptr;
-  vk::raii::Device device = nullptr;
-  uint32_t queueIndex = ~0;
-  vk::raii::Queue queue = nullptr;
-  vk::raii::SwapchainKHR swapChain = nullptr;
-  std::vector<vk::Image> swapChainImages;
-  vk::SurfaceFormatKHR swapChainSurfaceFormat;
-  vk::Extent2D swapChainExtent;
-  std::vector<vk::raii::ImageView> swapChainImageViews;
+  /*
+   * Member variables
+   */
 
-  vk::raii::PipelineLayout pipelineLayout = nullptr;
-  vk::raii::Pipeline graphicsPipeline = nullptr;
+  GLFWwindow *MWindow = nullptr;
+  vk::raii::Context MContext;
+  vk::raii::Instance MInstance = nullptr;
+  vk::raii::DebugUtilsMessengerEXT MDebugMessenger = nullptr;
+  vk::raii::SurfaceKHR MSurface = nullptr;
+  vk::raii::PhysicalDevice MPhysicalDevice = nullptr;
+  vk::raii::Device MDevice = nullptr;
+  uint32_t MQueueIndex = ~0;
+  vk::raii::Queue MQueue = nullptr;
+  vk::raii::SwapchainKHR MSwapChain = nullptr;
+  std::vector<vk::Image> MSwapChainImages;
+  vk::SurfaceFormatKHR MSwapChainSurfaceFormat;
+  vk::Extent2D MSwapChainExtent;
+  std::vector<vk::raii::ImageView> MSwapChainImageViews;
 
-  vk::raii::DescriptorSetLayout computeDescriptorSetLayout = nullptr;
-  vk::raii::PipelineLayout computePipelineLayout = nullptr;
-  vk::raii::Pipeline computePipeline = nullptr;
+  vk::raii::PipelineLayout MPipelineLayout = nullptr;
+  vk::raii::PipelineLayout MComputePipelineLayout = nullptr;
+  vk::raii::Pipeline MGraphicsPipeline = nullptr;
+  vk::raii::Pipeline MComputePipeline = nullptr;
 
-  std::vector<vk::raii::Buffer> shaderStorageBuffers;
-  std::vector<vk::raii::DeviceMemory> shaderStorageBuffersMemory;
+  vk::raii::DescriptorSetLayout MComputeDescriptorSetLayout = nullptr;
+  vk::raii::DescriptorPool MDescriptorPool = nullptr;
+  std::vector<vk::raii::DescriptorSet> MComputeDescriptorSets;
 
-  std::vector<vk::raii::Buffer> uniformBuffers;
-  std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
-  std::vector<void *> uniformBuffersMapped;
+  std::vector<vk::raii::Buffer> MShaderStorageBuffers;
+  std::vector<vk::raii::DeviceMemory> MShaderStorageBuffersMemory;
 
-  vk::raii::DescriptorPool descriptorPool = nullptr;
-  std::vector<vk::raii::DescriptorSet> computeDescriptorSets;
+  std::vector<vk::raii::Buffer> MUniformBuffers;
+  std::vector<vk::raii::DeviceMemory> MUniformBuffersMemory;
+  std::vector<void *> MUniformBuffersMapped;
 
-  vk::raii::CommandPool commandPool = nullptr;
-  std::vector<vk::raii::CommandBuffer> commandBuffers;
-  std::vector<vk::raii::CommandBuffer> computeCommandBuffers;
+  vk::raii::CommandPool MCommandPool = nullptr;
+  std::vector<vk::raii::CommandBuffer> MCommandBuffers;
+  std::vector<vk::raii::CommandBuffer> MComputeCommandBuffers;
 
-  vk::raii::Semaphore semaphore = nullptr;
-  uint64_t timelineValue = 0;
-  std::vector<vk::raii::Fence> inFlightFences;
-  uint32_t currentFrame = 0;
+  vk::raii::Semaphore MSemaphore = nullptr;
+  uint64_t MTimelineValue = 0;
+  std::vector<vk::raii::Fence> MInFlightFences;
+  uint32_t MCurrentFrame = 0;
 
-  double lastFrameTime = 0.0;
-  double lastTime = 0.0;
+  double MLastFrameTime = 0.0;
+  double MLastTime = 0.0;
 
-  std::vector<const char *> requiredDeviceExtension = {
+  std::vector<const char *> MRequiredDeviceExtension = {
       vk::KHRSwapchainExtensionName,
       vk::KHRSpirv14ExtensionName,
       vk::KHRSynchronization2ExtensionName,
@@ -131,19 +137,21 @@ private:
       vk::KHRShaderDrawParametersExtensionName,
   };
 
-  // static members
-  static const uint32_t windowWidth = 800;
-  static const uint32_t windowHeight = 600;
-  static const unsigned MaxFramesInFlight = 2;
-  static const uint64_t FenceTimeout = 100000000;
-  static const uint32_t ParticleCount = 8192;
-  static constexpr bool enableValidationLayers =
+  /*
+   * static members
+   */
+  static const uint32_t SWindowWidth = 800;
+  static const uint32_t SWindowHeight = 600;
+  static const unsigned SMaxFramesInFlight = 2;
+  static const uint64_t SFenceTimeout = 100000000;
+  static const uint32_t SParticleCount = 8192;
+  static constexpr bool SEnableValidationLayers =
 #ifdef NDEBUG
       false;
 #else
       true;
 #endif
-  static const std::vector<const char *> validationLayers;
+  static const std::vector<const char *> SValidationLayers;
 };
 
 /*

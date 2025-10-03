@@ -7,10 +7,10 @@
 void vkParticle::createSurface() {
   // GLFW only deals with C API
   VkSurfaceKHR vkSurface;
-  if (glfwCreateWindowSurface(*instance, window, nullptr, &vkSurface) != 0) {
+  if (glfwCreateWindowSurface(*MInstance, MWindow, nullptr, &vkSurface) != 0) {
     throw std::runtime_error("failed to create window surface!");
   }
-  surface = vk::raii::SurfaceKHR(instance, vkSurface);
+  MSurface = vk::raii::SurfaceKHR(MInstance, vkSurface);
 }
 
 namespace {
@@ -65,25 +65,26 @@ vk::Extent2D chooseSwapExtent(GLFWwindow *window,
 } // end anonymous namespace
 
 void vkParticle::createSwapChain() {
-  auto surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(*surface);
-  swapChainExtent = chooseSwapExtent(window, surfaceCapabilities);
-  swapChainSurfaceFormat =
-      chooseSwapSurfaceFormat(physicalDevice.getSurfaceFormatsKHR(*surface));
+  auto surfaceCapabilities =
+      MPhysicalDevice.getSurfaceCapabilitiesKHR(*MSurface);
+  MSwapChainExtent = chooseSwapExtent(MWindow, surfaceCapabilities);
+  MSwapChainSurfaceFormat =
+      chooseSwapSurfaceFormat(MPhysicalDevice.getSurfaceFormatsKHR(*MSurface));
   vk::SwapchainCreateInfoKHR swapChainCreateInfo{
-      .surface = *surface,
+      .surface = *MSurface,
       .minImageCount = chooseSwapMinImageCount(surfaceCapabilities),
-      .imageFormat = swapChainSurfaceFormat.format,
-      .imageColorSpace = swapChainSurfaceFormat.colorSpace,
-      .imageExtent = swapChainExtent,
+      .imageFormat = MSwapChainSurfaceFormat.format,
+      .imageColorSpace = MSwapChainSurfaceFormat.colorSpace,
+      .imageExtent = MSwapChainExtent,
       .imageArrayLayers = 1,
       .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
       .imageSharingMode = vk::SharingMode::eExclusive,
       .preTransform = surfaceCapabilities.currentTransform,
       .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
       .presentMode = chooseSwapPresentMode(
-          physicalDevice.getSurfacePresentModesKHR(*surface)),
+          MPhysicalDevice.getSurfacePresentModesKHR(*MSurface)),
       .clipped = true};
 
-  swapChain = vk::raii::SwapchainKHR(device, swapChainCreateInfo);
-  swapChainImages = swapChain.getImages();
+  MSwapChain = vk::raii::SwapchainKHR(MDevice, swapChainCreateInfo);
+  MSwapChainImages = MSwapChain.getImages();
 }

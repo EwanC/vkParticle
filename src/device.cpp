@@ -6,7 +6,7 @@
 
 void vkParticle::pickPhysicalDevice() {
   std::vector<vk::raii::PhysicalDevice> devices =
-      instance.enumeratePhysicalDevices();
+      MInstance.enumeratePhysicalDevices();
   const auto devIter = std::ranges::find_if(devices, [&](auto const &device) {
     // Check if the device supports the Vulkan 1.3 API version
     bool supportsVulkan1_3 =
@@ -23,7 +23,7 @@ void vkParticle::pickPhysicalDevice() {
     auto availableDeviceExtensions =
         device.enumerateDeviceExtensionProperties();
     bool supportsAllRequiredExtensions = std::ranges::all_of(
-        requiredDeviceExtension,
+        MRequiredDeviceExtension,
         [&availableDeviceExtensions](auto const &requiredDeviceExtension) {
           return std::ranges::any_of(
               availableDeviceExtensions,
@@ -52,7 +52,7 @@ void vkParticle::pickPhysicalDevice() {
            supportsAllRequiredExtensions && supportsRequiredFeatures;
   });
   if (devIter != devices.end()) {
-    physicalDevice = *devIter;
+    MPhysicalDevice = *devIter;
   } else {
     throw std::runtime_error("failed to find a suitable GPU!");
   }
@@ -61,7 +61,7 @@ void vkParticle::pickPhysicalDevice() {
 void vkParticle::createLogicalDevice() {
   // find the index of the first queue family that supports graphics
   std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
-      physicalDevice.getQueueFamilyProperties();
+      MPhysicalDevice.getQueueFamilyProperties();
 
   // get the first index into queueFamilyProperties which supports both graphics
   // and present
@@ -71,13 +71,13 @@ void vkParticle::createLogicalDevice() {
          vk::QueueFlagBits::eGraphics) &&
         (queueFamilyProperties[qfpIndex].queueFlags &
          vk::QueueFlagBits::eCompute) &&
-        physicalDevice.getSurfaceSupportKHR(qfpIndex, *surface)) {
+        MPhysicalDevice.getSurfaceSupportKHR(qfpIndex, *MSurface)) {
       // found a queue family that supports both graphics and present
-      queueIndex = qfpIndex;
+      MQueueIndex = qfpIndex;
       break;
     }
   }
-  if (queueIndex == ~0) {
+  if (MQueueIndex == ~0) {
     throw std::runtime_error(
         "Could not find a queue for graphics and present -> terminating");
   }
@@ -99,7 +99,7 @@ void vkParticle::createLogicalDevice() {
   // create a Device
   float queuePriority = 0.0f;
   vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
-      .queueFamilyIndex = queueIndex,
+      .queueFamilyIndex = MQueueIndex,
       .queueCount = 1,
       .pQueuePriorities = &queuePriority};
   vk::DeviceCreateInfo deviceCreateInfo{
@@ -107,40 +107,40 @@ void vkParticle::createLogicalDevice() {
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &deviceQueueCreateInfo,
       .enabledExtensionCount =
-          static_cast<uint32_t>(requiredDeviceExtension.size()),
-      .ppEnabledExtensionNames = requiredDeviceExtension.data()};
+          static_cast<uint32_t>(MRequiredDeviceExtension.size()),
+      .ppEnabledExtensionNames = MRequiredDeviceExtension.data()};
 
-  device = vk::raii::Device(physicalDevice, deviceCreateInfo);
-  queue = vk::raii::Queue(device, queueIndex, 0);
+  MDevice = vk::raii::Device(MPhysicalDevice, deviceCreateInfo);
+  MQueue = vk::raii::Queue(MDevice, MQueueIndex, 0);
 }
 
 void vkParticle::createImageViews() {
-  assert(swapChainImageViews.empty());
+  assert(MSwapChainImageViews.empty());
 
   vk::ImageViewCreateInfo imageViewCreateInfo{
       .viewType = vk::ImageViewType::e2D,
-      .format = swapChainSurfaceFormat.format,
+      .format = MSwapChainSurfaceFormat.format,
       .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
-  for (auto image : swapChainImages) {
+  for (auto image : MSwapChainImages) {
     imageViewCreateInfo.image = image;
-    swapChainImageViews.emplace_back(device, imageViewCreateInfo);
+    MSwapChainImageViews.emplace_back(MDevice, imageViewCreateInfo);
   }
 }
 
 void vkParticle::cleanupSwapChain() {
-  swapChainImageViews.clear();
-  swapChain = nullptr;
+  MSwapChainImageViews.clear();
+  MSwapChain = nullptr;
 }
 
 void vkParticle::recreateSwapChain() {
   int width = 0, height = 0;
-  glfwGetFramebufferSize(window, &width, &height);
+  glfwGetFramebufferSize(MWindow, &width, &height);
   while (width == 0 || height == 0) {
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(MWindow, &width, &height);
     glfwWaitEvents();
   }
 
-  device.waitIdle();
+  MDevice.waitIdle();
 
   cleanupSwapChain();
   createSwapChain();

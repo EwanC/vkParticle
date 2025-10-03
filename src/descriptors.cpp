@@ -17,45 +17,45 @@ void vkParticle::createComputeDescriptorSetLayout() {
   vk::DescriptorSetLayoutCreateInfo layoutInfo{
       .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
       .pBindings = layoutBindings.data()};
-  computeDescriptorSetLayout =
-      vk::raii::DescriptorSetLayout(device, layoutInfo);
+  MComputeDescriptorSetLayout =
+      vk::raii::DescriptorSetLayout(MDevice, layoutInfo);
 }
 
 void vkParticle::createDescriptorPool() {
   std::array poolSize{vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer,
-                                             MaxFramesInFlight),
+                                             SMaxFramesInFlight),
                       vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer,
-                                             MaxFramesInFlight * 2)};
+                                             SMaxFramesInFlight * 2)};
 
   vk::DescriptorPoolCreateInfo poolInfo{};
   poolInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-  poolInfo.maxSets = MaxFramesInFlight;
+  poolInfo.maxSets = SMaxFramesInFlight;
   poolInfo.poolSizeCount = poolSize.size();
   poolInfo.pPoolSizes = poolSize.data();
-  descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
+  MDescriptorPool = vk::raii::DescriptorPool(MDevice, poolInfo);
 }
 
 void vkParticle::createComputeDescriptorSets() {
-  std::vector<vk::DescriptorSetLayout> layouts(MaxFramesInFlight,
-                                               computeDescriptorSetLayout);
+  std::vector<vk::DescriptorSetLayout> layouts(SMaxFramesInFlight,
+                                               MComputeDescriptorSetLayout);
   vk::DescriptorSetAllocateInfo allocInfo{};
-  allocInfo.descriptorPool = *descriptorPool;
-  allocInfo.descriptorSetCount = MaxFramesInFlight;
+  allocInfo.descriptorPool = *MDescriptorPool;
+  allocInfo.descriptorSetCount = SMaxFramesInFlight;
   allocInfo.pSetLayouts = layouts.data();
-  computeDescriptorSets.clear();
-  computeDescriptorSets = device.allocateDescriptorSets(allocInfo);
+  MComputeDescriptorSets.clear();
+  MComputeDescriptorSets = MDevice.allocateDescriptorSets(allocInfo);
 
-  for (size_t i = 0; i < MaxFramesInFlight; i++) {
-    vk::DescriptorBufferInfo bufferInfo(uniformBuffers[i], 0,
+  for (size_t i = 0; i < SMaxFramesInFlight; i++) {
+    vk::DescriptorBufferInfo bufferInfo(MUniformBuffers[i], 0,
                                         sizeof(UniformBufferObject));
 
     vk::DescriptorBufferInfo storageBufferInfoLastFrame(
-        shaderStorageBuffers[(i - 1) % MaxFramesInFlight], 0,
-        sizeof(Particle) * ParticleCount);
+        MShaderStorageBuffers[(i - 1) % SMaxFramesInFlight], 0,
+        sizeof(Particle) * SParticleCount);
     vk::DescriptorBufferInfo storageBufferInfoCurrentFrame(
-        shaderStorageBuffers[i], 0, sizeof(Particle) * ParticleCount);
+        MShaderStorageBuffers[i], 0, sizeof(Particle) * SParticleCount);
     std::array descriptorWrites{
-        vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[i],
+        vk::WriteDescriptorSet{.dstSet = *MComputeDescriptorSets[i],
                                .dstBinding = 0,
                                .dstArrayElement = 0,
                                .descriptorCount = 1,
@@ -64,7 +64,7 @@ void vkParticle::createComputeDescriptorSets() {
                                .pImageInfo = nullptr,
                                .pBufferInfo = &bufferInfo,
                                .pTexelBufferView = nullptr},
-        vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[i],
+        vk::WriteDescriptorSet{.dstSet = *MComputeDescriptorSets[i],
                                .dstBinding = 1,
                                .dstArrayElement = 0,
                                .descriptorCount = 1,
@@ -73,7 +73,7 @@ void vkParticle::createComputeDescriptorSets() {
                                .pImageInfo = nullptr,
                                .pBufferInfo = &storageBufferInfoLastFrame,
                                .pTexelBufferView = nullptr},
-        vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[i],
+        vk::WriteDescriptorSet{.dstSet = *MComputeDescriptorSets[i],
                                .dstBinding = 2,
                                .dstArrayElement = 0,
                                .descriptorCount = 1,
@@ -83,6 +83,6 @@ void vkParticle::createComputeDescriptorSets() {
                                .pBufferInfo = &storageBufferInfoCurrentFrame,
                                .pTexelBufferView = nullptr},
     };
-    device.updateDescriptorSets(descriptorWrites, {});
+    MDevice.updateDescriptorSets(descriptorWrites, {});
   }
 }

@@ -5,26 +5,26 @@
 void vkParticle::createCommandPool() {
   vk::CommandPoolCreateInfo poolInfo{
       .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-      .queueFamilyIndex = queueIndex};
-  commandPool = vk::raii::CommandPool(device, poolInfo);
+      .queueFamilyIndex = MQueueIndex};
+  MCommandPool = vk::raii::CommandPool(MDevice, poolInfo);
 }
 
 void vkParticle::createCommandBuffers() {
-  commandBuffers.clear();
+  MCommandBuffers.clear();
   vk::CommandBufferAllocateInfo allocInfo{
-      .commandPool = commandPool,
+      .commandPool = MCommandPool,
       .level = vk::CommandBufferLevel::ePrimary,
-      .commandBufferCount = MaxFramesInFlight};
-  commandBuffers = vk::raii::CommandBuffers(device, allocInfo);
+      .commandBufferCount = SMaxFramesInFlight};
+  MCommandBuffers = vk::raii::CommandBuffers(MDevice, allocInfo);
 }
 
 void vkParticle::createComputeCommandBuffers() {
-  computeCommandBuffers.clear();
+  MComputeCommandBuffers.clear();
   vk::CommandBufferAllocateInfo allocInfo{};
-  allocInfo.commandPool = *commandPool;
+  allocInfo.commandPool = *MCommandPool;
   allocInfo.level = vk::CommandBufferLevel::ePrimary;
-  allocInfo.commandBufferCount = MaxFramesInFlight;
-  computeCommandBuffers = vk::raii::CommandBuffers(device, allocInfo);
+  allocInfo.commandBufferCount = SMaxFramesInFlight;
+  MComputeCommandBuffers = vk::raii::CommandBuffers(MDevice, allocInfo);
 }
 
 void vkParticle::transition_image_layout(
@@ -41,7 +41,7 @@ void vkParticle::transition_image_layout(
       .newLayout = new_layout,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .image = swapChainImages[imageIndex],
+      .image = MSwapChainImages[imageIndex],
       .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
                            .baseMipLevel = 0,
                            .levelCount = 1,
@@ -50,12 +50,12 @@ void vkParticle::transition_image_layout(
   vk::DependencyInfo dependency_info = {.dependencyFlags = {},
                                         .imageMemoryBarrierCount = 1,
                                         .pImageMemoryBarriers = &barrier};
-  commandBuffers[currentFrame].pipelineBarrier2(dependency_info);
+  MCommandBuffers[MCurrentFrame].pipelineBarrier2(dependency_info);
 }
 
 void vkParticle::recordCommandBuffer(uint32_t imageIndex) {
-  commandBuffers[currentFrame].reset();
-  commandBuffers[currentFrame].begin({});
+  MCommandBuffers[MCurrentFrame].reset();
+  MCommandBuffers[MCurrentFrame].begin({});
   // Before starting rendering, transition the swapchain image to
   // COLOR_ATTACHMENT_OPTIMAL
   transition_image_layout(
@@ -68,29 +68,29 @@ void vkParticle::recordCommandBuffer(uint32_t imageIndex) {
   );
   vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
   vk::RenderingAttachmentInfo attachmentInfo = {
-      .imageView = swapChainImageViews[imageIndex],
+      .imageView = MSwapChainImageViews[imageIndex],
       .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
       .loadOp = vk::AttachmentLoadOp::eClear,
       .storeOp = vk::AttachmentStoreOp::eStore,
       .clearValue = clearColor};
   vk::RenderingInfo renderingInfo = {
-      .renderArea = {.offset = {0, 0}, .extent = swapChainExtent},
+      .renderArea = {.offset = {0, 0}, .extent = MSwapChainExtent},
       .layerCount = 1,
       .colorAttachmentCount = 1,
       .pColorAttachments = &attachmentInfo};
 
-  commandBuffers[currentFrame].beginRendering(renderingInfo);
-  commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                            *graphicsPipeline);
-  commandBuffers[currentFrame].setViewport(
-      0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width),
-                      static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
-  commandBuffers[currentFrame].setScissor(
-      0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
-  commandBuffers[currentFrame].bindVertexBuffers(
-      0, {shaderStorageBuffers[currentFrame]}, {0});
-  commandBuffers[currentFrame].draw(ParticleCount, 1, 0, 0);
-  commandBuffers[currentFrame].endRendering();
+  MCommandBuffers[MCurrentFrame].beginRendering(renderingInfo);
+  MCommandBuffers[MCurrentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                              *MGraphicsPipeline);
+  MCommandBuffers[MCurrentFrame].setViewport(
+      0, vk::Viewport(0.0f, 0.0f, static_cast<float>(MSwapChainExtent.width),
+                      static_cast<float>(MSwapChainExtent.height), 0.0f, 1.0f));
+  MCommandBuffers[MCurrentFrame].setScissor(
+      0, vk::Rect2D(vk::Offset2D(0, 0), MSwapChainExtent));
+  MCommandBuffers[MCurrentFrame].bindVertexBuffers(
+      0, {MShaderStorageBuffers[MCurrentFrame]}, {0});
+  MCommandBuffers[MCurrentFrame].draw(SParticleCount, 1, 0, 0);
+  MCommandBuffers[MCurrentFrame].endRendering();
   // After rendering, transition the swapchain image to PRESENT_SRC
   transition_image_layout(
       imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
@@ -100,17 +100,17 @@ void vkParticle::recordCommandBuffer(uint32_t imageIndex) {
       vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
       vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
   );
-  commandBuffers[currentFrame].end();
+  MCommandBuffers[MCurrentFrame].end();
 }
 
 void vkParticle::recordComputeCommandBuffer() {
-  computeCommandBuffers[currentFrame].reset();
-  computeCommandBuffers[currentFrame].begin({});
-  computeCommandBuffers[currentFrame].bindPipeline(
-      vk::PipelineBindPoint::eCompute, computePipeline);
-  computeCommandBuffers[currentFrame].bindDescriptorSets(
-      vk::PipelineBindPoint::eCompute, computePipelineLayout, 0,
-      {computeDescriptorSets[currentFrame]}, {});
-  computeCommandBuffers[currentFrame].dispatch(ParticleCount / 256, 1, 1);
-  computeCommandBuffers[currentFrame].end();
+  MComputeCommandBuffers[MCurrentFrame].reset();
+  MComputeCommandBuffers[MCurrentFrame].begin({});
+  MComputeCommandBuffers[MCurrentFrame].bindPipeline(
+      vk::PipelineBindPoint::eCompute, MComputePipeline);
+  MComputeCommandBuffers[MCurrentFrame].bindDescriptorSets(
+      vk::PipelineBindPoint::eCompute, MComputePipelineLayout, 0,
+      {MComputeDescriptorSets[MCurrentFrame]}, {});
+  MComputeCommandBuffers[MCurrentFrame].dispatch(SParticleCount / 256, 1, 1);
+  MComputeCommandBuffers[MCurrentFrame].end();
 }

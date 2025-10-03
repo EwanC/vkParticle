@@ -10,8 +10,8 @@
 
 void vkParticle::updateUniformBuffer(uint32_t currentImage) {
   UniformBufferObject ubo{};
-  ubo.deltaTime = static_cast<float>(lastFrameTime) * 2.f;
-  memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+  ubo.deltaTime = static_cast<float>(MLastFrameTime) * 2.f;
+  memcpy(MUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
 namespace {
@@ -51,21 +51,21 @@ void createBuffer(vk::raii::Device &device,
 
 void vkParticle::copyBuffer(vk::raii::Buffer &srcBuffer,
                             vk::raii::Buffer &dstBuffer, vk::DeviceSize size) {
-  vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
+  vk::CommandBufferAllocateInfo allocInfo{.commandPool = MCommandPool,
                                           .level =
                                               vk::CommandBufferLevel::ePrimary,
                                           .commandBufferCount = 1};
   vk::raii::CommandBuffer commandCopyBuffer =
-      std::move(device.allocateCommandBuffers(allocInfo).front());
+      std::move(MDevice.allocateCommandBuffers(allocInfo).front());
   commandCopyBuffer.begin(vk::CommandBufferBeginInfo{
       .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
   commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer,
                                vk::BufferCopy(0, 0, size));
   commandCopyBuffer.end();
-  queue.submit(vk::SubmitInfo{.commandBufferCount = 1,
-                              .pCommandBuffers = &*commandCopyBuffer},
-               nullptr);
-  queue.waitIdle();
+  MQueue.submit(vk::SubmitInfo{.commandBufferCount = 1,
+                               .pCommandBuffers = &*commandCopyBuffer},
+                nullptr);
+  MQueue.waitIdle();
 }
 
 void vkParticle::createShaderStorageBuffers() {
@@ -74,11 +74,11 @@ void vkParticle::createShaderStorageBuffers() {
   std::uniform_real_distribution rndDist(0.0f, 1.0f);
 
   // Initial particle positions on a circle
-  std::vector<Particle> particles(ParticleCount);
+  std::vector<Particle> particles(SParticleCount);
   for (auto &particle : particles) {
     float r = 0.25f * sqrtf(rndDist(rndEngine));
     float theta = rndDist(rndEngine) * 2.0f * 3.14159265358979323846f;
-    float x = r * cosf(theta) * windowHeight / windowWidth;
+    float x = r * cosf(theta) * SWindowHeight / SWindowWidth;
     float y = r * sinf(theta);
     particle.position = glm::vec2(x, y);
     particle.velocity = normalize(glm::vec2(x, y)) * 0.00025f;
@@ -86,12 +86,12 @@ void vkParticle::createShaderStorageBuffers() {
                                rndDist(rndEngine), 1.0f);
   }
 
-  vk::DeviceSize bufferSize = sizeof(Particle) * ParticleCount;
+  vk::DeviceSize bufferSize = sizeof(Particle) * SParticleCount;
 
   // Create a staging buffer used to upload data to the gpu
   vk::raii::Buffer stagingBuffer({});
   vk::raii::DeviceMemory stagingBufferMemory({});
-  createBuffer(device, physicalDevice, bufferSize,
+  createBuffer(MDevice, MPhysicalDevice, bufferSize,
                vk::BufferUsageFlagBits::eTransferSrc,
                vk::MemoryPropertyFlagBits::eHostVisible |
                    vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -101,43 +101,43 @@ void vkParticle::createShaderStorageBuffers() {
   memcpy(dataStaging, particles.data(), (size_t)bufferSize);
   stagingBufferMemory.unmapMemory();
 
-  shaderStorageBuffers.clear();
-  shaderStorageBuffersMemory.clear();
+  MShaderStorageBuffers.clear();
+  MShaderStorageBuffersMemory.clear();
 
   // Copy initial particle data to all storage buffers
-  for (size_t i = 0; i < MaxFramesInFlight; i++) {
+  for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::raii::Buffer shaderStorageBufferTemp({});
     vk::raii::DeviceMemory shaderStorageBufferTempMemory({});
-    createBuffer(device, physicalDevice, bufferSize,
+    createBuffer(MDevice, MPhysicalDevice, bufferSize,
                  vk::BufferUsageFlagBits::eStorageBuffer |
                      vk::BufferUsageFlagBits::eVertexBuffer |
                      vk::BufferUsageFlagBits::eTransferDst,
                  vk::MemoryPropertyFlagBits::eDeviceLocal,
                  shaderStorageBufferTemp, shaderStorageBufferTempMemory);
     copyBuffer(stagingBuffer, shaderStorageBufferTemp, bufferSize);
-    shaderStorageBuffers.emplace_back(std::move(shaderStorageBufferTemp));
-    shaderStorageBuffersMemory.emplace_back(
+    MShaderStorageBuffers.emplace_back(std::move(shaderStorageBufferTemp));
+    MShaderStorageBuffersMemory.emplace_back(
         std::move(shaderStorageBufferTempMemory));
   }
 }
 
 void vkParticle::createUniformBuffers() {
-  uniformBuffers.clear();
-  uniformBuffersMemory.clear();
-  uniformBuffersMapped.clear();
+  MUniformBuffers.clear();
+  MUniformBuffersMemory.clear();
+  MUniformBuffersMapped.clear();
 
-  for (size_t i = 0; i < MaxFramesInFlight; i++) {
+  for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
     vk::raii::Buffer buffer({});
     vk::raii::DeviceMemory bufferMem({});
-    createBuffer(device, physicalDevice, bufferSize,
+    createBuffer(MDevice, MPhysicalDevice, bufferSize,
                  vk::BufferUsageFlagBits::eUniformBuffer,
                  vk::MemoryPropertyFlagBits::eHostVisible |
                      vk::MemoryPropertyFlagBits::eHostCoherent,
                  buffer, bufferMem);
-    uniformBuffers.emplace_back(std::move(buffer));
-    uniformBuffersMemory.emplace_back(std::move(bufferMem));
-    uniformBuffersMapped.emplace_back(
-        uniformBuffersMemory[i].mapMemory(0, bufferSize));
+    MUniformBuffers.emplace_back(std::move(buffer));
+    MUniformBuffersMemory.emplace_back(std::move(bufferMem));
+    MUniformBuffersMapped.emplace_back(
+        MUniformBuffersMemory[i].mapMemory(0, bufferSize));
   }
 }
