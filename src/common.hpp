@@ -36,50 +36,81 @@ struct UniformBufferObject {
   float deltaTime = 1.0f;
 };
 
+/// @brief Class holding RAII state of the application
 struct vkParticle {
-  void run(); // called by main.cpp
+  /// @brief User code entry-point, called by main.cpp
+  void run();
 
-  bool framebufferResized = false; // Accessed by GLFW callback
+  /// @brief Set by GLFW callback when window is resized.
+  bool MFramebufferResized = false;
 
 private:
   /*
    * Member methods
    */
+
+  /// @brief Initializes GLFW and creates a window.
   void initWindow();
+  /// @brief Creates required VK objects.
   void initVulkan();
+  /// @brief Game loop that draws frames until user exists the program.
   void mainLoop();
+  /// @brief Tears down GLFW instance on program exit.
   void cleanup();
+
+  /// @brief Creates a VkInstance.
   void createInstance();
-  void pickPhysicalDevice();
-  void createLogicalDevice();
+  /// @brief Registers validation layers, if enabled.
   void setupDebugMessenger();
+  /// @brief Creates a VkSurfaceKHR window surface to interface with GLFW.
   void createSurface();
+  /// @brief Selects a VkPhysicalDevice to use from the VK instance.
+  void pickPhysicalDevice();
+  /// @brief Creates a logical device and queue with required capabilities.
+  void createLogicalDevice();
+  /// @brief Creates a swap chain image buffer for rendering.
   void createSwapChain();
+  /// @brief Creates a view into each image in the swap chain.
   void createImageViews();
+  /// @brief TODO
+  void createComputeDescriptorSetLayout();
+  /// @brief TODO
   void createGraphicsPipeline();
+  /// @brief TODO
   void createComputePipeline();
+  /// @brief Creates a command pool
   void createCommandPool();
-  void createCommandBuffers();
-  void createComputeCommandBuffers();
-  void createSyncObjects();
-  void recordCommandBuffer(uint32_t imageIndex);
-  void recordComputeCommandBuffer();
-  void transition_image_layout(uint32_t imageIndex, vk::ImageLayout old_layout,
-                               vk::ImageLayout new_layout,
-                               vk::AccessFlags2 src_access_mask,
-                               vk::AccessFlags2 dst_access_mask,
-                               vk::PipelineStageFlags2 src_stage_mask,
-                               vk::PipelineStageFlags2 dst_stage_mask);
-  void drawFrame();
-  void recreateSwapChain();
-  void cleanupSwapChain();
+  /// @brief TODO
   void createShaderStorageBuffers();
+  /// @brief TODO
   void createUniformBuffers();
+  /// @brief TODO
   void createDescriptorPool();
+  /// @brief TODO
   void createComputeDescriptorSets();
+  /// @brief Creates a command-buffer to use for graphics commands for each of
+  /// the possible frames in flight.
+  void createGraphicsCommandBuffers();
+  /// @brief Creates a command-buffer to use for compute commands for each of
+  /// the possible frames in flight.
+  void createComputeCommandBuffers();
+  /// @brief Creates timeline semaphore and fences for synchronization.
+  void createSyncObjects();
+
+  /// @brief TODO
+  void recordGraphicsCommandBuffer(uint32_t imageIndex);
+  /// @brief TODO
+  void recordComputeCommandBuffer();
+  /// @brief TODO
+  void drawFrame();
+  /// @brief TODO
+  void recreateSwapChain();
+  /// @brief TODO
+  void cleanupSwapChain();
+  /// @brief TODO
   void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer,
                   vk::DeviceSize size);
-  void createComputeDescriptorSetLayout();
+  /// @brief TODO
   void updateUniformBuffer(uint32_t currentImage);
 
   /*
@@ -118,7 +149,7 @@ private:
   std::vector<void *> MUniformBuffersMapped;
 
   vk::raii::CommandPool MCommandPool = nullptr;
-  std::vector<vk::raii::CommandBuffer> MCommandBuffers;
+  std::vector<vk::raii::CommandBuffer> MGraphicsCommandBuffers;
   std::vector<vk::raii::CommandBuffer> MComputeCommandBuffers;
 
   vk::raii::Semaphore MSemaphore = nullptr;
@@ -138,7 +169,7 @@ private:
   };
 
   /*
-   * static members
+   * Static member variables
    */
   static const uint32_t SWindowWidth = 800;
   static const uint32_t SWindowHeight = 600;
@@ -157,7 +188,15 @@ private:
 /*
  * Free functions from shader_file.cpp
  */
+
+/// @brief Loads a file from disk.
+/// @param[in] filename Path on disk for file to read.
+/// @returns Vector of char bytes with file contents.
 std::vector<char> readFile(const std::string &filename);
 
+/// @brief Creates a VK shader module from shader source
+/// @param[in] code Source code of shader.
+/// @param[in] device The device to created the model for.
+/// @returns The created shader module.
 [[nodiscard]] vk::raii::ShaderModule
 createShaderModule(const std::vector<char> &code, vk::raii::Device &device);

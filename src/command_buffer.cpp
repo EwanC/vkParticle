@@ -9,29 +9,32 @@ void vkParticle::createCommandPool() {
   MCommandPool = vk::raii::CommandPool(MDevice, poolInfo);
 }
 
-void vkParticle::createCommandBuffers() {
-  MCommandBuffers.clear();
+void vkParticle::createGraphicsCommandBuffers() {
+  MGraphicsCommandBuffers.clear();
   vk::CommandBufferAllocateInfo allocInfo{
       .commandPool = MCommandPool,
       .level = vk::CommandBufferLevel::ePrimary,
       .commandBufferCount = SMaxFramesInFlight};
-  MCommandBuffers = vk::raii::CommandBuffers(MDevice, allocInfo);
+  MGraphicsCommandBuffers = vk::raii::CommandBuffers(MDevice, allocInfo);
 }
 
 void vkParticle::createComputeCommandBuffers() {
   MComputeCommandBuffers.clear();
-  vk::CommandBufferAllocateInfo allocInfo{};
-  allocInfo.commandPool = *MCommandPool;
-  allocInfo.level = vk::CommandBufferLevel::ePrimary;
-  allocInfo.commandBufferCount = SMaxFramesInFlight;
+  vk::CommandBufferAllocateInfo allocInfo{
+      .commandPool = MCommandPool,
+      .level = vk::CommandBufferLevel::ePrimary,
+      .commandBufferCount = SMaxFramesInFlight};
   MComputeCommandBuffers = vk::raii::CommandBuffers(MDevice, allocInfo);
 }
 
-void vkParticle::transition_image_layout(
-    uint32_t imageIndex, vk::ImageLayout old_layout, vk::ImageLayout new_layout,
-    vk::AccessFlags2 src_access_mask, vk::AccessFlags2 dst_access_mask,
-    vk::PipelineStageFlags2 src_stage_mask,
-    vk::PipelineStageFlags2 dst_stage_mask) {
+namespace {
+void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer,
+                           vk::Image image, vk::ImageLayout old_layout,
+                           vk::ImageLayout new_layout,
+                           vk::AccessFlags2 src_access_mask,
+                           vk::AccessFlags2 dst_access_mask,
+                           vk::PipelineStageFlags2 src_stage_mask,
+                           vk::PipelineStageFlags2 dst_stage_mask) {
   vk::ImageMemoryBarrier2 barrier = {
       .srcStageMask = src_stage_mask,
       .srcAccessMask = src_access_mask,
@@ -41,7 +44,7 @@ void vkParticle::transition_image_layout(
       .newLayout = new_layout,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .image = MSwapChainImages[imageIndex],
+      .image = image,
       .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
                            .baseMipLevel = 0,
                            .levelCount = 1,
@@ -50,17 +53,18 @@ void vkParticle::transition_image_layout(
   vk::DependencyInfo dependency_info = {.dependencyFlags = {},
                                         .imageMemoryBarrierCount = 1,
                                         .pImageMemoryBarriers = &barrier};
-  MCommandBuffers[MCurrentFrame].pipelineBarrier2(dependency_info);
+  commandBuffer.pipelineBarrier2(dependency_info);
 }
+} // anonymous namespace
 
-void vkParticle::recordCommandBuffer(uint32_t imageIndex) {
-  MCommandBuffers[MCurrentFrame].reset();
-  MCommandBuffers[MCurrentFrame].begin({});
+void vkParticle::recordGraphicsCommandBuffer(uint32_t imageIndex) {
+  MGraphicsCommandBuffers[MCurrentFrame].reset();
+  MGraphicsCommandBuffers[MCurrentFrame].begin({});
   // Before starting rendering, transition the swapchain image to
   // COLOR_ATTACHMENT_OPTIMAL
-  transition_image_layout(
-      imageIndex, vk::ImageLayout::eUndefined,
-      vk::ImageLayout::eColorAttachmentOptimal,
+  transitionImageLayout(
+      MGraphicsCommandBuffers[MCurrentFrame], MSwapChainImages[imageIndex],
+      vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal,
       {}, // srcAccessMask (no need to wait for previous operations)
       vk::AccessFlagBits2::eColorAttachmentWrite,        // dstAccessMask
       vk::PipelineStageFlagBits2::eTopOfPipe,            // srcStage
@@ -79,28 +83,28 @@ void vkParticle::recordCommandBuffer(uint32_t imageIndex) {
       .colorAttachmentCount = 1,
       .pColorAttachments = &attachmentInfo};
 
-  MCommandBuffers[MCurrentFrame].beginRendering(renderingInfo);
-  MCommandBuffers[MCurrentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                              *MGraphicsPipeline);
-  MCommandBuffers[MCurrentFrame].setViewport(
+  MGraphicsCommandBuffers[MCurrentFrame].beginRendering(renderingInfo);
+  MGraphicsCommandBuffers[MCurrentFrame].bindPipeline(
+      vk::PipelineBindPoint::eGraphics, *MGraphicsPipeline);
+  MGraphicsCommandBuffers[MCurrentFrame].setViewport(
       0, vk::Viewport(0.0f, 0.0f, static_cast<float>(MSwapChainExtent.width),
                       static_cast<float>(MSwapChainExtent.height), 0.0f, 1.0f));
-  MCommandBuffers[MCurrentFrame].setScissor(
+  MGraphicsCommandBuffers[MCurrentFrame].setScissor(
       0, vk::Rect2D(vk::Offset2D(0, 0), MSwapChainExtent));
-  MCommandBuffers[MCurrentFrame].bindVertexBuffers(
+  MGraphicsCommandBuffers[MCurrentFrame].bindVertexBuffers(
       0, {MShaderStorageBuffers[MCurrentFrame]}, {0});
-  MCommandBuffers[MCurrentFrame].draw(SParticleCount, 1, 0, 0);
-  MCommandBuffers[MCurrentFrame].endRendering();
+  MGraphicsCommandBuffers[MCurrentFrame].draw(SParticleCount, 1, 0, 0);
+  MGraphicsCommandBuffers[MCurrentFrame].endRendering();
   // After rendering, transition the swapchain image to PRESENT_SRC
-  transition_image_layout(
-      imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
-      vk::ImageLayout::ePresentSrcKHR,
+  transitionImageLayout(
+      MGraphicsCommandBuffers[MCurrentFrame], MSwapChainImages[imageIndex],
+      vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR,
       vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
       {},                                                 // dstAccessMask
       vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
       vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
   );
-  MCommandBuffers[MCurrentFrame].end();
+  MGraphicsCommandBuffers[MCurrentFrame].end();
 }
 
 void vkParticle::recordComputeCommandBuffer() {

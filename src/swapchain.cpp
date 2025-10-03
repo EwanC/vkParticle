@@ -88,3 +88,36 @@ void vkParticle::createSwapChain() {
   MSwapChain = vk::raii::SwapchainKHR(MDevice, swapChainCreateInfo);
   MSwapChainImages = MSwapChain.getImages();
 }
+
+void vkParticle::createImageViews() {
+  assert(MSwapChainImageViews.empty());
+
+  vk::ImageViewCreateInfo imageViewCreateInfo{
+      .viewType = vk::ImageViewType::e2D,
+      .format = MSwapChainSurfaceFormat.format,
+      .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
+  for (auto image : MSwapChainImages) {
+    imageViewCreateInfo.image = image;
+    MSwapChainImageViews.emplace_back(MDevice, imageViewCreateInfo);
+  }
+}
+
+void vkParticle::cleanupSwapChain() {
+  MSwapChainImageViews.clear();
+  MSwapChain = nullptr;
+}
+
+void vkParticle::recreateSwapChain() {
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(MWindow, &width, &height);
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(MWindow, &width, &height);
+    glfwWaitEvents();
+  }
+
+  MDevice.waitIdle();
+
+  cleanupSwapChain();
+  createSwapChain();
+  createImageViews();
+}

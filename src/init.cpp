@@ -12,7 +12,7 @@ const std::vector<const char *> vkParticle::SValidationLayers = {
 namespace {
 void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
   auto app = reinterpret_cast<vkParticle *>(glfwGetWindowUserPointer(window));
-  app->framebufferResized = true;
+  app->MFramebufferResized = true;
 }
 } // anonymous namespace
 
@@ -51,7 +51,7 @@ void vkParticle::initVulkan() {
   createUniformBuffers();
   createDescriptorPool();
   createComputeDescriptorSets();
-  createCommandBuffers();
+  createGraphicsCommandBuffers();
   createComputeCommandBuffers();
   createSyncObjects();
 }

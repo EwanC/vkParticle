@@ -46,7 +46,7 @@ void vkParticle::drawFrame() {
     MQueue.submit(computeSubmitInfo, nullptr);
   }
   {
-    recordCommandBuffer(imageIndex);
+    recordGraphicsCommandBuffer(imageIndex);
 
     // Submit graphics work (waits for compute to finish)
     vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eVertexInput;
@@ -56,15 +56,15 @@ void vkParticle::drawFrame() {
         .signalSemaphoreValueCount = 1,
         .pSignalSemaphoreValues = &graphicsSignalValue};
 
-    vk::SubmitInfo graphicsSubmitInfo{.pNext = &graphicsTimelineInfo,
-                                      .waitSemaphoreCount = 1,
-                                      .pWaitSemaphores = &*MSemaphore,
-                                      .pWaitDstStageMask = &waitStage,
-                                      .commandBufferCount = 1,
-                                      .pCommandBuffers =
-                                          &*MCommandBuffers[MCurrentFrame],
-                                      .signalSemaphoreCount = 1,
-                                      .pSignalSemaphores = &*MSemaphore};
+    vk::SubmitInfo graphicsSubmitInfo{
+        .pNext = &graphicsTimelineInfo,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*MSemaphore,
+        .pWaitDstStageMask = &waitStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*MGraphicsCommandBuffers[MCurrentFrame],
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*MSemaphore};
 
     MQueue.submit(graphicsSubmitInfo, nullptr);
 
@@ -86,8 +86,8 @@ void vkParticle::drawFrame() {
 
     result = MQueue.presentKHR(presentInfo);
     if (result == vk::Result::eErrorOutOfDateKHR ||
-        result == vk::Result::eSuboptimalKHR || framebufferResized) {
-      framebufferResized = false;
+        result == vk::Result::eSuboptimalKHR || MFramebufferResized) {
+      MFramebufferResized = false;
       recreateSwapChain();
     } else if (result != vk::Result::eSuccess) {
       throw std::runtime_error("failed to present swap chain image!");
