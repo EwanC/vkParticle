@@ -1,6 +1,6 @@
 // Copyright (c) 2025 Ewan Crawford
 
-#include "vk_particle.hpp"
+#include "common.hpp"
 #include <iostream>
 
 int main() {

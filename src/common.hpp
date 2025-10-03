@@ -7,6 +7,7 @@ import vulkan_hpp;
 #include <GLFW/glfw3.h>
 
 #include <array>
+#include <string>
 #include <vector>
 
 #define GLM_FORCE_RADIANS
@@ -36,15 +37,9 @@ struct UniformBufferObject {
 };
 
 struct vkParticle {
-  void run() {
-    initWindow();
-    initVulkan();
-    mainLoop();
-    cleanup();
-  }
+  void run(); // called by main.cpp
 
-  // Accessed by GLFW callback
-  bool framebufferResized = false;
+  bool framebufferResized = false; // Accessed by GLFW callback
 
 private:
   void initWindow();
@@ -52,7 +47,6 @@ private:
   void mainLoop();
   void cleanup();
   void createInstance();
-  std::vector<const char *> getRequiredExtensions() const;
   void pickPhysicalDevice();
   void createLogicalDevice();
   void setupDebugMessenger();
@@ -151,3 +145,11 @@ private:
 #endif
   static const std::vector<const char *> validationLayers;
 };
+
+/*
+ * Free functions from shader_file.cpp
+ */
+std::vector<char> readFile(const std::string &filename);
+
+[[nodiscard]] vk::raii::ShaderModule
+createShaderModule(const std::vector<char> &code, vk::raii::Device &device);
