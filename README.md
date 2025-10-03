@@ -15,3 +15,5 @@ $ cd build && ./vkParticle
 ```
 
 Press Escape key to exit, or close window in GUI.
+
+![capture](img/capture.gif)
