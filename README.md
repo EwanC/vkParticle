@@ -1,13 +1,16 @@
 # vkParticle
 
-Vulkan GPU particle simulation using both graphics and compute.
-Based on the [Khronos Vulkan Compute Shader Tutorial](https://docs.vulkan.org/tutorial/latest/11_Compute_Shader.html).
+Vulkan GPU particle simulation using both graphics and compute. Based on the
+[Khronos Vulkan Compute Shader Tutorial](https://docs.vulkan.org/tutorial/latest/11_Compute_Shader.html).
 
 Modifications from tutorial include:
 * Using specialization constant in shader to control number of work-items in a
   work-group from host-code.
 
-Only tested on Ubuntu 24.04 and requires a C++20 compiler to build along with the Vulkan-SDK. See [Development Environment](https://docs.vulkan.org/tutorial/latest/02_Development_environment.html) for more details on the build setup.
+Only tested on Ubuntu 24.04 and requires a C++20 compiler to build along with
+the Vulkan-SDK. See
+[Development Environment](https://docs.vulkan.org/tutorial/latest/02_Development_environment.html)
+for more details on the build setup.
 
 Sample command line for building and running application, the validation layer
 is enabled in Debug builds:
