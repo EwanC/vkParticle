@@ -9,7 +9,9 @@
 #include <stdexcept>
 
 void vkParticle::updateUniformBuffer(uint32_t currentImage) {
+  // Update uniform buffer with a new time delta.
   UniformBufferObject ubo{};
+  // `MLastFrameTime` set on each iteration of vkParticle::mainLoop()
   ubo.deltaTime = static_cast<float>(MLastFrameTime) * 2.f;
   memcpy(MUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
@@ -51,6 +53,9 @@ void createBuffer(vk::raii::Device &device,
 
 void vkParticle::copyBuffer(vk::raii::Buffer &srcBuffer,
                             vk::raii::Buffer &dstBuffer, vk::DeviceSize size) {
+
+  // Create a single-submit command-buffer containing a single copy command
+  // for the full size of the src/dst buffers
   vk::CommandBufferAllocateInfo allocInfo{.commandPool = MCommandPool,
                                           .level =
                                               vk::CommandBufferLevel::ePrimary,
@@ -69,13 +74,14 @@ void vkParticle::copyBuffer(vk::raii::Buffer &srcBuffer,
 }
 
 void vkParticle::createShaderStorageBuffers() {
-  // Initialize particles
+  // Setup random distribution to use for particle initial locations
   std::default_random_engine rndEngine(static_cast<unsigned>(time(nullptr)));
   std::uniform_real_distribution rndDist(0.0f, 1.0f);
 
-  // Initial particle positions on a circle
+  // Initialize host memory with particle instances
   std::vector<Particle> particles(SParticleCount);
   for (auto &particle : particles) {
+    // Initial particle positions on a circle
     float r = 0.25f * sqrtf(rndDist(rndEngine));
     float theta = rndDist(rndEngine) * 2.0f * 3.14159265358979323846f;
     float x = r * cosf(theta) * SWindowHeight / SWindowWidth;
@@ -86,9 +92,10 @@ void vkParticle::createShaderStorageBuffers() {
                                rndDist(rndEngine), 1.0f);
   }
 
+  // Memory required for a buffer of all particles
   vk::DeviceSize bufferSize = sizeof(Particle) * SParticleCount;
 
-  // Create a staging buffer used to upload data to the gpu
+  // Create a host-visible staging buffer used to upload data to the gpu
   vk::raii::Buffer stagingBuffer({});
   vk::raii::DeviceMemory stagingBufferMemory({});
   createBuffer(MDevice, MPhysicalDevice, bufferSize,
@@ -97,6 +104,7 @@ void vkParticle::createShaderStorageBuffers() {
                    vk::MemoryPropertyFlagBits::eHostCoherent,
                stagingBuffer, stagingBufferMemory);
 
+  // Map staging buffer buffer, and copy host std::vector data into it.
   void *dataStaging = stagingBufferMemory.mapMemory(0, bufferSize);
   memcpy(dataStaging, particles.data(), (size_t)bufferSize);
   stagingBufferMemory.unmapMemory();
@@ -104,7 +112,11 @@ void vkParticle::createShaderStorageBuffers() {
   MShaderStorageBuffers.clear();
   MShaderStorageBuffersMemory.clear();
 
-  // Copy initial particle data to all storage buffers
+  // Use single-shot command-buffer to copy initial particle data from
+  // temporary buffers to shader storage buffers.
+  // SSBs have usage flag bits set for all of storage, vertex, and transfer,
+  // so that they can be used in vertex shader and compute shader, and
+  // data transferred from host to GPU (for UBO with delta time).
   for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::raii::Buffer shaderStorageBufferTemp({});
     vk::raii::DeviceMemory shaderStorageBufferTempMemory({});
@@ -112,7 +124,7 @@ void vkParticle::createShaderStorageBuffers() {
                  vk::BufferUsageFlagBits::eStorageBuffer |
                      vk::BufferUsageFlagBits::eVertexBuffer |
                      vk::BufferUsageFlagBits::eTransferDst,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal,
+                 vk::MemoryPropertyFlagBits::eDeviceLocal, // GPU resident
                  shaderStorageBufferTemp, shaderStorageBufferTempMemory);
     copyBuffer(stagingBuffer, shaderStorageBufferTemp, bufferSize);
     MShaderStorageBuffers.emplace_back(std::move(shaderStorageBufferTemp));
@@ -126,6 +138,10 @@ void vkParticle::createUniformBuffers() {
   MUniformBuffersMemory.clear();
   MUniformBuffersMapped.clear();
 
+  // Each frame has a host visible/coherent uniform buffer
+  // that is persistently mapped. This is used to pass in the
+  // new time value to the compute shader, rather than passing
+  // this through the vertex buffer and updating that every frame.
   for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
     vk::raii::Buffer buffer({});

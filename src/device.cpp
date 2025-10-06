@@ -33,6 +33,7 @@ void vkParticle::pickPhysicalDevice() {
               });
         });
 
+    // Check if all required features are available
     auto features = device.template getFeatures2<
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
@@ -59,12 +60,10 @@ void vkParticle::pickPhysicalDevice() {
 }
 
 void vkParticle::createLogicalDevice() {
-  // find the index of the first queue family that supports graphics
   std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
       MPhysicalDevice.getQueueFamilyProperties();
 
-  // get the first index into queueFamilyProperties which supports both graphics
-  // and present
+  // Find the index of the first queue family that supports graphics and compute
   for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size();
        qfpIndex++) {
     if ((queueFamilyProperties[qfpIndex].queueFlags &
@@ -82,7 +81,8 @@ void vkParticle::createLogicalDevice() {
         "Could not find a queue for graphics and present -> terminating");
   }
 
-  // query for Vulkan 1.3 features
+  // Setup pointer chain of structs with required features to create logical
+  // device with.
   vk::StructureChain<vk::PhysicalDeviceFeatures2,
                      vk::PhysicalDeviceVulkan13Features,
                      vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
@@ -96,7 +96,7 @@ void vkParticle::createLogicalDevice() {
           {.timelineSemaphore = true} // vk::PhysicalDeviceTimelineSemaphoreKHR
       };
 
-  // create a Device
+  // create a logical device and queue
   float queuePriority = 0.0f;
   vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
       .queueFamilyIndex = MQueueIndex,

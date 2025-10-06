@@ -16,6 +16,7 @@ void vkParticle::createSurface() {
 namespace {
 uint32_t
 chooseSwapMinImageCount(vk::SurfaceCapabilitiesKHR const &surfaceCapabilities) {
+  // Use at least 3 images in swap chain
   auto minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
   if ((0 < surfaceCapabilities.maxImageCount) &&
       (surfaceCapabilities.maxImageCount < minImageCount)) {
@@ -27,6 +28,8 @@ chooseSwapMinImageCount(vk::SurfaceCapabilitiesKHR const &surfaceCapabilities) {
 vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
     std::vector<vk::SurfaceFormatKHR> const &availableFormats) {
   assert(!availableFormats.empty());
+  // SRGB is a standard color format, use one of the most common ones
+  // `VK_FORMAT_B8G8R8A8_SRGB`.
   const auto formatIt =
       std::ranges::find_if(availableFormats, [](const auto &format) {
         return format.format == vk::Format::eB8G8R8A8Srgb &&
@@ -37,9 +40,14 @@ vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
 
 vk::PresentModeKHR chooseSwapPresentMode(
     const std::vector<vk::PresentModeKHR> &availablePresentModes) {
+  // FIFO is a standard first-in-first-out queue, if the queue is full then
+  // the program waits
   assert(std::ranges::any_of(availablePresentModes, [](auto presentMode) {
     return presentMode == vk::PresentModeKHR::eFifo;
   }));
+
+  // Mailbox is like FIFO, but if queue is full then images which are already
+  // enqueued can get replaced with newer ones.
   return std::ranges::any_of(availablePresentModes,
                              [](const vk::PresentModeKHR value) {
                                return vk::PresentModeKHR::eMailbox == value;
@@ -56,6 +64,8 @@ vk::Extent2D chooseSwapExtent(GLFWwindow *window,
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
 
+  // Swap extent is the resolution of the swap chain images, use resolution of
+  // window
   return {std::clamp<uint32_t>(width, capabilities.minImageExtent.width,
                                capabilities.maxImageExtent.width),
           std::clamp<uint32_t>(height, capabilities.minImageExtent.height,
@@ -78,6 +88,7 @@ void vkParticle::createSwapChain() {
       .imageExtent = MSwapChainExtent,
       .imageArrayLayers = 1,
       .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+      // Exclusive means that image is owned by 1 queue family at a time
       .imageSharingMode = vk::SharingMode::eExclusive,
       .preTransform = surfaceCapabilities.currentTransform,
       .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,

@@ -13,23 +13,26 @@ import vulkan_hpp;
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
-/// @brief Storage buffer class used in compute shader
+/// @brief Class used to interface with shader device code
 struct Particle {
   glm::vec2 position;
   glm::vec2 velocity;
   glm::vec4 color;
 
+  // Tells the runtime what stride to use for vertex data
   static vk::VertexInputBindingDescription getBindingDescription() {
     return {0, sizeof(Particle), vk::VertexInputRate::eVertex};
   }
 
   static std::array<vk::VertexInputAttributeDescription, 2>
   getAttributeDescriptions() {
-    return {vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat,
-                                                offsetof(Particle, position)),
-            vk::VertexInputAttributeDescription(1, 0,
-                                                vk::Format::eR32G32B32A32Sfloat,
-                                                offsetof(Particle, color))};
+    return {
+        // In Vertex shader input, we have a float2 position struct attribute
+        // followed by a float4 color attribute.
+        vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat,
+                                            offsetof(Particle, position)),
+        vk::VertexInputAttributeDescription(
+            1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(Particle, color))};
   }
 };
 
@@ -60,13 +63,14 @@ private:
   /// @brief Tears down GLFW instance on program exit.
   void cleanup();
 
-  /// @brief Creates a VkInstance.
+  /// @brief Creates a VkInstance with required extensions and layers.
   void createInstance();
   /// @brief Registers validation layers, if enabled.
   void setupDebugMessenger();
   /// @brief Creates a VkSurfaceKHR window surface to interface with GLFW.
   void createSurface();
-  /// @brief Selects a VkPhysicalDevice to use from the VK instance.
+  /// @brief Selects a VkPhysicalDevice to use from the VK instance based on
+  /// the application requirements.
   void pickPhysicalDevice();
   /// @brief Creates a logical device and queue with required capabilities.
   void createLogicalDevice();
@@ -84,7 +88,7 @@ private:
   void createComputePipeline();
   /// @brief Creates a command pool.
   void createCommandPool();
-  /// @brief Creates SSB for every frame of `Particle` objects copied to
+  /// @brief Creates buffer for every frame of `Particle` objects copied to
   /// GPU-only memory from host-visible staging memory.
   void createShaderStorageBuffers();
   /// @brief Creates a persistently mapped uniformed buffer for every frame.
@@ -106,6 +110,7 @@ private:
   void createSyncObjects();
 
   /// @brief Add commands to graphics command-buffer
+  /// @param[in] imageIndex Index in swap chain of current image for frame.
   void recordGraphicsCommandBuffer(uint32_t imageIndex);
   /// @brief Add commands to compute command-buffer
   void recordComputeCommandBuffer();
@@ -116,8 +121,11 @@ private:
   void recreateSwapChain();
   /// @brief Resets swap chain state.
   void cleanupSwapChain();
-  /// @brief Adds a copy buffer command to a one time submit command-buffer,
-  /// and submits it to the queue with a blocking host wait.
+  /// @brief Adds a copy buffer command to a newly created one time submit
+  /// command-buffer, and submits it to the queue with a blocking host wait.
+  /// @param[in] srcBuffer Buffer to copy from.
+  /// @param[in] dstBuffer Buffer to copy to.
+  /// @param[in] Size Number of bytes to copy.
   void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer,
                   vk::DeviceSize size);
   /// @brief Sets the uniform buffer object data to the latest time delta.

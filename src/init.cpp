@@ -10,6 +10,8 @@ const std::vector<const char *> vkParticle::SValidationLayers = {
     "VK_LAYER_KHRONOS_validation"};
 
 namespace {
+// Callback invoked when window is resized, which sets a boolean member in an
+// instance of the vkParticle class.
 void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
   auto app = reinterpret_cast<vkParticle *>(glfwGetWindowUserPointer(window));
   app->MFramebufferResized = true;
@@ -62,7 +64,8 @@ void vkParticle::cleanup() {
 }
 
 namespace {
-std::vector<const char *> getRequiredExtensions(bool enableValidationLayers) {
+std::vector<const char *>
+getGLFWRequiredExtensions(bool enableValidationLayers) {
   uint32_t glfwExtCount = 0;
   auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtCount);
 
@@ -82,7 +85,7 @@ void vkParticle::createInstance() {
       .engineVersion = VK_MAKE_VERSION(1, 0, 0),
       .apiVersion = vk::ApiVersion14};
 
-  // Get the required layers
+  // Enable validation layer if requested
   std::vector<char const *> requiredLayers;
   if (SEnableValidationLayers) {
     requiredLayers.assign(SValidationLayers.begin(), SValidationLayers.end());
@@ -100,9 +103,9 @@ void vkParticle::createInstance() {
     }
   }
 
-  // Get required extensions and check all are supported by the Vulkan
+  // Get required GLFW extensions and check all are supported by the Vulkan
   // implementation.
-  auto requiredExtensions = getRequiredExtensions(SEnableValidationLayers);
+  auto requiredExtensions = getGLFWRequiredExtensions(SEnableValidationLayers);
   auto extensionProperties = MContext.enumerateInstanceExtensionProperties();
   for (auto const &requiredExtension : requiredExtensions) {
     bool extUnsupported = std::ranges::none_of(
@@ -178,11 +181,13 @@ void vkParticle::mainLoop() {
 void vkParticle::createSyncObjects() {
   MInFlightFences.clear();
 
+  // Create a timeline semaphore with counter initialized to zero.
   vk::SemaphoreTypeCreateInfo semaphoreType{
       .semaphoreType = vk::SemaphoreType::eTimeline, .initialValue = 0};
   MSemaphore = vk::raii::Semaphore(MDevice, {.pNext = &semaphoreType});
   MTimelineValue = 0;
 
+  // Fence for host synchronization for each possible frame.
   for (size_t i = 0; i < SMaxFramesInFlight; i++) {
     vk::FenceCreateInfo fenceInfo{};
     MInFlightFences.emplace_back(MDevice, fenceInfo);

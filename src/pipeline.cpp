@@ -3,7 +3,7 @@
 #include "common.hpp"
 
 void vkParticle::createGraphicsPipeline() {
-  // Shader setup
+  // Setup vertex & fragment shaders
   vk::raii::ShaderModule shaderModule =
       createShaderModule(readFile("slang.spv"), MDevice);
 
@@ -18,7 +18,10 @@ void vkParticle::createGraphicsPipeline() {
   vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
                                                       fragShaderStageInfo};
 
+  // Defines the stride between vertex shader input elements
   auto bindingDescription = Particle::getBindingDescription();
+  // Defines how the individual elements in the vertex shader input struct
+  // are laid out.
   auto attributeDescriptions = Particle::getAttributeDescriptions();
   vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
       .vertexBindingDescriptionCount = 1,
@@ -27,50 +30,73 @@ void vkParticle::createGraphicsPipeline() {
           static_cast<uint32_t>(attributeDescriptions.size()),
       .pVertexAttributeDescriptions = attributeDescriptions.data()};
 
+  // Each vertex is a point rather than a triangle, to represent a particle
   vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
       .topology = vk::PrimitiveTopology::ePointList,
       .primitiveRestartEnable = vk::False};
+
+  // Viewport describes the rectangular region of the framebuffer that the
+  // output image will be rendered to,
+  // with any pixels outside the scissor rectangle being discarded.
   vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1,
                                                     .scissorCount = 1};
+  // viewport and scissor can be changed without recreating the pipeline
+  std::vector dynamicStates = {vk::DynamicState::eViewport,
+                               vk::DynamicState::eScissor};
+  vk::PipelineDynamicStateCreateInfo dynamicState{
+      .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+      .pDynamicStates = dynamicStates.data()};
+
   vk::PipelineRasterizationStateCreateInfo rasterizer{
+      // discard fragments beyond near/far planes
       .depthClampEnable = vk::False,
+      // If set to true when geometry never passes through rasterizer,
+      // not what we want
       .rasterizerDiscardEnable = vk::False,
+      // Fill the polygon area with fragments, rather than point or line
       .polygonMode = vk::PolygonMode::eFill,
+      // backface culling
       .cullMode = vk::CullModeFlagBits::eBack,
-      .frontFace = vk::FrontFace::eCounterClockwise,
+      // interprets how a polygon is decided as being front facing
+      // Shouldn't matter here as we're drawing points, not triangles
+      .frontFace = vk::FrontFace::eClockwise,
+      // Whether to add an offset to depth value
       .depthBiasEnable = vk::False,
+      // scalar factor applied to a fragment’s slope in depth bias calculations.
       .depthBiasSlopeFactor = 1.0f,
+      // Thickness of line in fragments, larger than 1.0 requires 'wideline'
+      // GPU feature.
       .lineWidth = 1.0f};
 
+  // Multi-sampling combines the fragment shader results of multiple polygons
+  // that rasterize to the same pixel, to help avoid aliasing. Disabled here.
   vk::PipelineMultisampleStateCreateInfo multisampling{
       .rasterizationSamples = vk::SampleCountFlagBits::e1,
       .sampleShadingEnable = vk::False};
 
+  // Color blending step of the pipeline runs after fragment shading to combine
+  // with color already in framebuffer.
   vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-      .blendEnable = vk::True,
+      .blendEnable = vk::True, // enable blending
+      // Alpha blending - colors are blended based on opacity
       .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
       .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
       .colorBlendOp = vk::BlendOp::eAdd,
       .srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
       .dstAlphaBlendFactor = vk::BlendFactor::eZero,
       .alphaBlendOp = vk::BlendOp::eAdd,
+      // Blend RGBA channels
       .colorWriteMask =
           vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
           vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
   };
 
+  // Global color blend settings
   vk::PipelineColorBlendStateCreateInfo colorBlending{
       .logicOpEnable = vk::False,
       .logicOp = vk::LogicOp::eCopy,
       .attachmentCount = 1,
       .pAttachments = &colorBlendAttachment};
-
-  // Can be changed without recreating the pipeline
-  std::vector dynamicStates = {vk::DynamicState::eViewport,
-                               vk::DynamicState::eScissor};
-  vk::PipelineDynamicStateCreateInfo dynamicState{
-      .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
-      .pDynamicStates = dynamicStates.data()};
 
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
   MPipelineLayout = vk::raii::PipelineLayout(MDevice, pipelineLayoutInfo);
@@ -96,17 +122,19 @@ void vkParticle::createGraphicsPipeline() {
 }
 
 void vkParticle::createComputePipeline() {
+  // Load compute shader from file
   vk::raii::ShaderModule shaderModule =
       createShaderModule(readFile("slang.spv"), MDevice);
-
   vk::PipelineShaderStageCreateInfo computeShaderStageInfo{
       .stage = vk::ShaderStageFlagBits::eCompute,
       .module = shaderModule,
       .pName = "compMain"};
+
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
       .setLayoutCount = 1, .pSetLayouts = &*MComputeDescriptorSetLayout};
   MComputePipelineLayout =
       vk::raii::PipelineLayout(MDevice, pipelineLayoutInfo);
+  // Create compute pipeline with a single stage for the compute shader
   vk::ComputePipelineCreateInfo pipelineInfo{.stage = computeShaderStageInfo,
                                              .layout = *MComputePipelineLayout};
   MComputePipeline = vk::raii::Pipeline(MDevice, nullptr, pipelineInfo);
