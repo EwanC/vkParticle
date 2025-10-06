@@ -79,7 +79,8 @@ void vkParticle::createShaderStorageBuffers() {
   std::uniform_real_distribution rndDist(0.0f, 1.0f);
 
   // Initialize host memory with particle instances
-  std::vector<Particle> particles(SParticleCount);
+  constexpr uint32_t ParticleCount = SComputeWorkItems * SComputeWorkGroups;
+  std::vector<Particle> particles(ParticleCount);
   for (auto &particle : particles) {
     // Initial particle positions on a circle
     float r = 0.25f * sqrtf(rndDist(rndEngine));
@@ -93,7 +94,7 @@ void vkParticle::createShaderStorageBuffers() {
   }
 
   // Memory required for a buffer of all particles
-  vk::DeviceSize bufferSize = sizeof(Particle) * SParticleCount;
+  vk::DeviceSize bufferSize = sizeof(Particle) * ParticleCount;
 
   // Create a host-visible staging buffer used to upload data to the gpu
   vk::raii::Buffer stagingBuffer({});

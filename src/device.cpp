@@ -43,6 +43,8 @@ void vkParticle::pickPhysicalDevice() {
             .dynamicRendering &&
         features.template get<vk::PhysicalDeviceVulkan13Features>()
             .synchronization2 &&
+        features.template get<vk::PhysicalDeviceVulkan13Features>()
+            .maintenance4 &&
         features
             .template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>()
             .extendedDynamicState &&
@@ -90,7 +92,8 @@ void vkParticle::createLogicalDevice() {
       featureChain = {
           {}, // vk::PhysicalDeviceFeatures2
           {.synchronization2 = true,
-           .dynamicRendering = true}, // vk::PhysicalDeviceVulkan13Features
+           .dynamicRendering = true,
+           .maintenance4 = true}, // vk::PhysicalDeviceVulkan13Features
           {.extendedDynamicState =
                true}, // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
           {.timelineSemaphore = true} // vk::PhysicalDeviceTimelineSemaphoreKHR

@@ -55,8 +55,13 @@ StructuredBuffer<ParticleSSBO> particlesIn;
 // RWStructuredBuffer can be read and written. See HLSL
 RWStructuredBuffer<ParticleSSBO> particlesOut;
 
-// 1D kernel with 256 work-items in each dispatched work-group
-[shader("compute")][numthreads(256, 1, 1)]
+
+// Maps to a SPIRV specialization constant
+// Defaults to 256 work-items in work-group
+[SpecializationConstant] const uint xThreads = 256;
+
+// 1D compute kernel
+[shader("compute")][numthreads(xThreads, 1, 1)]
 void compMain(uint3 threadId : SV_DispatchThreadID) {
   uint index = threadId.x;
 

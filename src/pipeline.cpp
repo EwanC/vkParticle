@@ -125,10 +125,22 @@ void vkParticle::createComputePipeline() {
   // Load compute shader from file
   vk::raii::ShaderModule shaderModule =
       createShaderModule(readFile("slang.spv"), MDevice);
+
+  // Specialization constant for number of threads/invocations/work-items
+  // in compute shader work-group.
+  // Default constant ID in Slang is 1 if nothing is specified.
+  vk::SpecializationMapEntry specMapEntry{
+      .constantID = 1, .offset = 0, .size = sizeof(uint32_t)};
+
+  vk::SpecializationInfo specInfo{.mapEntryCount = 1,
+                                  .pMapEntries = &specMapEntry,
+                                  .dataSize = sizeof(SComputeWorkItems),
+                                  .pData = &SComputeWorkItems};
   vk::PipelineShaderStageCreateInfo computeShaderStageInfo{
       .stage = vk::ShaderStageFlagBits::eCompute,
       .module = shaderModule,
-      .pName = "compMain"};
+      .pName = "compMain",
+      .pSpecializationInfo = &specInfo};
 
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
       .setLayoutCount = 1, .pSetLayouts = &*MComputeDescriptorSetLayout};

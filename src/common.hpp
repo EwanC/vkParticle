@@ -193,7 +193,8 @@ private:
   static const uint32_t SWindowHeight = 600;
   static const unsigned SMaxFramesInFlight = 2;
   static const uint64_t SFenceTimeout = 100000000;
-  static const uint32_t SParticleCount = 8192;
+  static constexpr uint32_t SComputeWorkItems = 16;
+  static constexpr uint32_t SComputeWorkGroups = 32;
   static constexpr bool SEnableValidationLayers =
 #ifdef NDEBUG
       false;

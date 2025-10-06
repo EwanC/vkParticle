@@ -125,7 +125,8 @@ void vkParticle::recordGraphicsCommandBuffer(uint32_t imageIndex) {
 
   // Draw each of our particles, without using an index buffer as we're using
   // dots for vertices rather than triangles
-  MGraphicsCommandBuffers[MCurrentFrame].draw(SParticleCount, 1,
+  constexpr uint32_t ParticleCount = SComputeWorkItems * SComputeWorkGroups;
+  MGraphicsCommandBuffers[MCurrentFrame].draw(ParticleCount, 1,
                                               0 /* offset into SV_VertexId*/,
                                               0 /* offset into SV_InstanceID*/);
   MGraphicsCommandBuffers[MCurrentFrame].endRendering();
@@ -156,9 +157,9 @@ void vkParticle::recordComputeCommandBuffer() {
   MComputeCommandBuffers[MCurrentFrame].bindDescriptorSets(
       vk::PipelineBindPoint::eCompute, MComputePipelineLayout, 0,
       {MComputeDescriptorSets[MCurrentFrame]}, {});
-  // The 1D compute shader uses 256 work-items per work-group dispatch, so
-  // divide total number of threads by work-items size to get number of
-  // work-groups to dispatch.
-  MComputeCommandBuffers[MCurrentFrame].dispatch(SParticleCount / 256, 1, 1);
+  // The 1D compute shader uses SCopmuteWorkItems work-group dispatch, set via
+  // specialization constants. So total number of invocations at the moment
+  // is "SComputeWorkGroups * SComputeWorkItems"
+  MComputeCommandBuffers[MCurrentFrame].dispatch(SComputeWorkGroups, 1, 1);
   MComputeCommandBuffers[MCurrentFrame].end();
 }

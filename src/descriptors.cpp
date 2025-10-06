@@ -59,13 +59,14 @@ void vkParticle::createComputeDescriptorSets() {
 
     // Create scratch GPU only memory for last frames details, so we know
     // how to update with the current position based on last position
+    constexpr uint32_t ParticleCount = SComputeWorkItems * SComputeWorkGroups;
     vk::DescriptorBufferInfo storageBufferInfoLastFrame(
         MShaderStorageBuffers[(i - 1) % SMaxFramesInFlight], 0,
-        sizeof(Particle) * SParticleCount);
+        sizeof(Particle) * ParticleCount);
 
     // Create scratch GPU only memory for current frames details
     vk::DescriptorBufferInfo storageBufferInfoCurrentFrame(
-        MShaderStorageBuffers[i], 0, sizeof(Particle) * SParticleCount);
+        MShaderStorageBuffers[i], 0, sizeof(Particle) * ParticleCount);
 
     std::array descriptorWrites{
         // Uniform buffer descriptor
