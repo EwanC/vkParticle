@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ewan Crawford
+// Copyright (c) 2025-2026 Ewan Crawford
 
 struct VertexShaderInput {
   float2 inPosition; // (x,y) position attribute

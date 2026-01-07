@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Ewan Crawford
+# Copyright (c) 2025-2026 Ewan Crawford
 
 cmake_minimum_required (VERSION 3.29)
 project(VkParticle)
