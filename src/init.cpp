@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include <algorithm>
 #include <cstring>
+#include <stdexcept>
 #include <iostream>
 #include <string>
 
@@ -43,22 +44,48 @@ void vkParticle::initVulkan() {
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
+  createSyclQueue();
   createSwapChain();
   createImageViews();
-  createComputeDescriptorSetLayout();
   createGraphicsPipeline();
-  createComputePipeline();
   createCommandPool();
-  createShaderStorageBuffers();
-  createUniformBuffers();
-  createDescriptorPool();
-  createComputeDescriptorSets();
-  createGraphicsCommandBuffers();
-  createComputeCommandBuffers();
+  // Creates the timeline semaphore before the buffers, so that the particle
+  // allocations are made on a SYCL context that can already be synchronized
+  // with this application.
   createSyncObjects();
+  createShaderStorageBuffers();
+  createGraphicsCommandBuffers();
 }
 
 void vkParticle::cleanup() {
+  // Objects shared between this application and the SYCL context have to be
+  // destroyed in order, as the RAII members below are otherwise torn down
+  // after the SYCL context, which still refers to them.
+  if (*MDevice) {
+    MDevice.waitIdle();
+  }
+  // Drops the import of `MSemaphore` into the SYCL context, which has to
+  // happen before `MSemaphore` itself is destroyed.
+  MSyclWaitSemaphore.reset();
+  MSyclSemaphore = nullptr;
+  MSyclSemaphoreSource = VK_NULL_HANDLE;
+
+  // Release the buffers bound to the imported memory, and the imports, before
+  // the SYCL allocations that own the memory.
+  MShaderStorageBuffers.clear();
+  MShaderStorageBuffersMemory.clear();
+  if (MSyclContext.has_value()) {
+    for (Particle *particles : MParticles) {
+      if (particles) {
+        sycl::free(particles, *MSyclContext);
+      }
+    }
+  }
+  MParticles.fill(nullptr);
+  MSyclQueue.reset();
+  MSyclContext.reset();
+  MSyclDevice.reset();
+
   glfwDestroyWindow(MWindow);
   glfwTerminate();
 }
@@ -181,11 +208,32 @@ void vkParticle::mainLoop() {
 void vkParticle::createSyncObjects() {
   MInFlightFences.clear();
 
-  // Create a timeline semaphore with counter initialized to zero.
+  // Create a timeline semaphore with counter initialized to zero, exportable
+  // so that the SYCL context can wait on the graphics work of this
+  // application completing before overwriting a particle buffer.
+  vk::ExportSemaphoreCreateInfo exportInfo{
+      .handleTypes = vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueFd};
   vk::SemaphoreTypeCreateInfo semaphoreType{
-      .semaphoreType = vk::SemaphoreType::eTimeline, .initialValue = 0};
+      .pNext = &exportInfo,
+      .semaphoreType = vk::SemaphoreType::eTimeline,
+      .initialValue = 0};
   MSemaphore = vk::raii::Semaphore(MDevice, {.pNext = &semaphoreType});
   MTimelineValue = 0;
+  MFrameGraphicsValue.fill(0);
+
+  // Import the semaphore into the SYCL context. The file descriptor is
+  // consumed by a successful import, and closed by `imported_semaphore` if
+  // the import fails.
+  const int semaphoreFd = MDevice.getSemaphoreFdKHR(
+      {.semaphore = MSemaphore,
+       .handleType = vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueFd});
+  MSyclWaitSemaphore =
+      sycl::vk_interop::imported_semaphore(*MSyclContext, semaphoreFd);
+  if (!MSyclWaitSemaphore) {
+    throw std::runtime_error(
+        "failed to import the graphics timeline semaphore into the SYCL "
+        "context!");
+  }
 
   // Fence for host synchronization for each possible frame.
   for (size_t i = 0; i < SMaxFramesInFlight; i++) {
